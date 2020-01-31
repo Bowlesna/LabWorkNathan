@@ -1,0 +1,84 @@
+---
+title: "Lab Journal"
+author: "Nathanael Bowles"
+date: "Winter, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Things to look at
+
+My current project is undefined at the moment but possible things I want to accomplish are as follows:
+   - P-value unreasonably small in Elise's code
+   - How to tackle the problem of learning if the kernals are correlated to eachother, which is a major assumption in nearly all tests.
+
+
+##Previously Noted information
+
+What is the project? Better understanding the spatial distribution of the two types of kernel in an ear of corn. The types of kernal is whether or not the kernal contains the flourescent gene. Previous work hypothesises that there is a 1-1 relationship between the two. 
+
+   
+
+## January 17, 2020
+
+My goal today will be to set up my lab journal, make sure R-Studio is good to go, and begin looking over Elise Vischulis' work. My goals regarding Elise's work will be to figure out any questions I have. Additionally, I will be looking at what packages she used in Python and identifying if R has identical packages I am able to use:
+
+_____________________________________________________________________________________________________________
+
+These packages include:
+
+NumPY: Adds better ways to handle large multi-dimensional arrays and matrices and adds functions for manipulating them. 
+     - Alternatives: 
+     
+ArgParse: Parser for command-line options, arguments and sub-commands. Seems like a quality of life improvement for dealing with functions. I would guess it is noncritical to find an alternative, but useful to keep in mind that there may be quality of life packages I should look into for R.
+
+xml.etree.ElementTree: Type of object used for converting to and from xml. Cedar told me not to reinvent the wheel and use the code he made for converting the two.
+
+Pandas: "In computer programming, pandas is a software library written for the Python programming language for data manipulation and analysis. In particular, it offers data structures and operations for manipulating numerical tables and time series" - google. 
+
+Matplotlib: Includes way to plot information from python, has a connection to NumPY. 
+     - Alternatives: Just use 'ggplot2' for R. There are plenty of others as well, if ggplot doesn't work.
+     
+Seaborn: Extension of Matplotlob. Same alternatives as above.
+
+Pylab: Works with Numpy and Matplotlib.
+
+Scipi: Python library used for scientific computing and technical computing. SciPy contains modules for optimization, linear algebra, integration, interpolation, special functions, FFT, signal and image processing, ODE solvers and other tasks common in science and engineering. 
+
+pysal: Python Spatial Analysis Library. Same as above
+
+*conclusion: Most of these things just make Python do what is 'built into' R. However, some packages I need to look at and review are as follows:
+   - ggplot2
+   - tidyverse
+
+_____________________________________________________________________________________________________________
+
+
+## January 24, 2020
+
+Time rememeber how to find degrees of freedom for this test. The hint is (#bins - #explanatory variables).
+
+lm() is a function I can use for GLM. [careful because glm() is for Generalized Linear Models (GLiM) which is a non-specific case of GLM]
+
+## January 30, 2020
+
+I was wrong, looking at the paper my work is based off of GLM refers to generalized linear model. As such, I will be looking at the glm() function. There is glm.fit() and just glm(). I'll figure at which one I plan to use.
+
+
+  
+## Duo Email for Conveniance:
+It was nice meeting you today. I'm excited about this project looking at the spatial distribution of the two types of kernels in an ear. Thanks for sharing the repository and the manuscript. I'll look through these a bit closer and will let you know if I have any questions.
+
+For the GLM, the response data to feed into the glm function would have two columns, the first with the number of dark kernels in each bin, and the second the number of light kernels in each bin. The explanatory variables could include the horizontal and/or vertical coordinates of, for example, the center of each bin. Quadratic terms for the horizontal coordinate may additionally be incorporated, too, to account for potential non-linear trend. Note that not all bins need to be of the exact same size or shape, even within the same ear.
+
+Your question about how the ears should be combined is a great one. An ideal thing to do would be to fit a separate model for each ear. This allows for the possibility that the kernels are independent in some ears but not others (possibly because certain shared environmental factors that affect fitness of dark vs light may be not be present for all ears?). However, this analysis would require a not too small sample size for each individual ear. I would suggest at least 15 degrees of freedom (#bins - #explanatory variables) for each ear. 
+
+If this is not feasible or hard to implement, I think combining between ears/families would be acceptable, because for the families considered to have no transmission defect, since fitness difference was not observed in the data, presumably no fitness-affecting environmental factors were present either. If so, including these families in the same model would be okay. This helps increase the same size. In this model, you would still keep the counts for individual ears separate, but multiple ears can be included in the model input. To be prudent, you could include the label for the ear as a (categorical) factor.
+
+I hope this helps clarify the model setup. I would say this is an exploratory step, so depending on what we see in an initial GLM, we end up assessing the independence assumption a bit differently in the next step. So I wouldn't stress too much about having the optimal model just now.
+
+Let me know if you have any other questions.
+
