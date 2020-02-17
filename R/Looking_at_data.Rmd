@@ -42,19 +42,11 @@ Next we want to view it in bins. We want at least 15 degrees of freedom. As such
 ```
 
 ```{r}
-   #split data into bins by brute force
+   #split data into bins by brute 
 
    #make new data frame for being counted in next section
-   final_df = data.frame(bins= seq(xmin,xmax,bins))
-   WT_df = data.frame(WT = c(1:(nrow(final_df)))*0)
-   GFP_df = data.frame(GFP = c(1:(nrow(final_df)))*0)
-   
-   
-   #merge function adds an extra column called "Row.names" so I remove them immedietely after... twice
-   final_df = merge(final_df, WT_df, by="row.names", sort=FALSE)
-      final_df = subset(final_df, select = -c(Row.names))
-   final_df = merge(final_df, GFP_df,by="row.names", sort=FALSE)
-      final_df = subset(final_df, select = -c(Row.names))
+   final_df = data.frame(bins= seq(xmin,xmax,bins),WT = c(1:(num_bins+1))*0,GFP = c(1:(num_bins+1))*0)
+  
   
    #sequences for the for-loops that come next
    sequence = seq(1,nrow(testdf)) 
@@ -122,7 +114,7 @@ Time to shove it into a GLM before the meeting
 - linear predictor
 
 ```{r}
-glm(WT ~ bins,family = quasibinomial(link = "logit"), data = final_df)
+glm(WT ~ bins,family = quasibinomial(link = "logit"), data = bin_df)
 
 
 ```

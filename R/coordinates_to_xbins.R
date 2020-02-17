@@ -3,26 +3,18 @@
 # Outputs a data frame with the type of kernel counted up per bin
 
 coordinates_to_xbins <- function(input_df, num_bins) {
-  
+
   
   #calculate amount of length per bin
   xmax = max(input_df$x)
   xmin = min(input_df$x)
   bins = (xmax-xmin)/num_bins
   
+  
   #split data into bins by brute force
   
   #make new data frame for column by column
-  final_df = data.frame(bins= seq(xmin,xmax,bins))
-  WT_df = data.frame(WT = c(1:(nrow(final_df)))*0)
-  GFP_df = data.frame(GFP = c(1:(nrow(final_df)))*0)
-  
-  
-  #merge function adds an extra column called "Row.names" so I remove them immedietely after... twice
-  final_df = merge(final_df, WT_df, by="row.names", sort=FALSE)
-    final_df = subset(final_df, select = -c(Row.names))
-  final_df = merge(final_df, GFP_df,by="row.names", sort=FALSE)
-    final_df = subset(final_df, select = -c(Row.names))
+  final_df = data.frame(bins= seq(xmin,xmax,bins), WT = c(1:(num_bins+1))*0, GFP = c(1:(num_bins+1))*0)
   
   #sequences for the for-loops that come next
   sequence = seq(1,nrow(input_df)) 
