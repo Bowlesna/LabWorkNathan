@@ -1,0 +1,130 @@
+---
+title: "Step-by-Step GLM"
+author: "Nathanael Bowles"
+date: "February 3, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+First I will take a look at how the data looks before we do anything. Here we simply have a histogram of the 
+
+```{r}
+library(ggplot2);
+
+testdf <- xml_to_coordinates("~/LabWorkNathan/Data_for_Analysis/all_xml_files/X400x426L-2m2.xml")
+
+  ggplot(data = testdf, aes(x=type)) +
+      geom_bar()  +
+      ggtitle("X400x426L-2m2") +
+      theme(plot.title = element_text(hjust = 0.5))
+```
+
+Next we want to view it in bins. We want at least 15 degrees of freedom. As such, we will mark xmax = kernel with largest x, then ((xmax-xmin)/16) will give us the bins we need.
+
+```{r}
+   #calculate amount of length per bin
+   num_bins = 20
+
+   xmax = max(testdf$x)
+   xmin = min(testdf$x)
+   bins = (xmax-xmin)/num_bins
+   
+   copy_df <- testdf
+   
+   
+   #removes data frame names that would cause issues with the code
+   rm(final_df)
+   rm(GFP_df)
+   rm(WT_df)
+```
+
+```{r}
+   #split data into bins by brute force
+
+   #make new data frame for being counted in next section
+   final_df = data.frame(bins= seq(xmin,xmax,bins))
+   WT_df = data.frame(WT = c(1:(nrow(final_df)))*0)
+   GFP_df = data.frame(GFP = c(1:(nrow(final_df)))*0)
+   
+   
+   #merge function adds an extra column called "Row.names" so I remove them immedietely after... twice
+   final_df = merge(final_df, WT_df, by="row.names", sort=FALSE)
+      final_df = subset(final_df, select = -c(Row.names))
+   final_df = merge(final_df, GFP_df,by="row.names", sort=FALSE)
+      final_df = subset(final_df, select = -c(Row.names))
+  
+   #sequences for the for-loops that come next
+   sequence = seq(1,nrow(testdf)) 
+   sequence2 = seq(1,nrow(final_df)-1)
+```
+
+
+```{r}
+
+   #The brute force part, requires that the final_df is empty or it will double count
+
+     for (val in sequence) {                                             #for each value
+        for(i in sequence2) {                                              #for each bin
+          
+          #if the value is in the bin, but not any bins before it
+          if ((copy_df$x[val] >= final_df$bins[i]) && (copy_df$x[val] < final_df$bins[i+1]) ) { 
+            if (copy_df$type[val] == "WT") {                            #has to check if the kernel is WT or GFP then increments bin
+               final_df$WT[i] = final_df$WT[i] + 1                      
+            }               
+            else if (copy_df$type[val] == "GFP") {
+               final_df$GFP[i] = final_df$GFP[i] + 1
+            }
+          }
+    
+        }
+     }
+
+     #remove excess row
+     final_df = final_df[-c(num_bins+1),]
+
+  
+```
+
+
+
+
+```{r}
+ #ggplot of the WT with respect to x
+ ggplot(data = final_df, aes(x = bins, y = WT)) +
+      geom_col()  +
+      ggtitle("X400x426L-2m2") +
+      ylim(0,15) +
+      theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+
+
+```{r}
+
+ #ggplot of the GFP with respect to y
+ ggplot(data = final_df, aes(x = bins, y = GFP)) +
+      geom_col()  +
+      ggtitle("X400x426L-2m2") +
+      ylim(0,15) +
+      theme(plot.title = element_text(hjust = 0.5))
+```
+
+
+Time to shove it into a GLM before the meeting
+- logit link function
+- quasi binomial function
+- over dispersion is taken care of by logit link
+- linear predictor
+
+```{r}
+glm(WT ~ bins,family = quasibinomial(link = "logit"), data = final_df)
+
+
+```
+
+
