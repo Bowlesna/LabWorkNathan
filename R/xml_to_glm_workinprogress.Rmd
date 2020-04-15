@@ -1,0 +1,97 @@
+---
+title: "xml_to_glm_workinprogress"
+author: "Nathanael Bowles"
+date: "February 24, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+source("../R/xml_to_coordinates.R")
+source("../R/coordinates_to_xbins.R")
+library(ggplot2)
+
+```
+
+
+Program to go through all the different .xml files and process them to get the dispersion value based on a certain number of bins
+
+
+First use the xml_to_coordinates.R function to process the xml files. 
+You may need to swap function locations if not using it within this GitHub
+
+
+load needed functions and other starter stuff:
+```{r}
+#load file names based on your folder
+filenames = list.files("../Data_for_Analysis/working_xml_files", pattern="*.xml", full.names=TRUE)
+```
+
+xml_to_coordinates the filenames function:
+```{r}
+coords = lapply(filenames, xml_to_coordinates)
+
+#removes faulty xml from the files. After running this you have to run the xml_to_coordinates file loop.
+
+sequence = rev(seq(1:length(coords)))
+
+#checks if there will be an error when coordinates_to_xbins runs. If there is, it removes it from filenames 
+for (i in sequence) {
+  if (nrow(coords[[i]]) == 0)  {
+    filenames = filenames[-i]
+  }
+}
+
+coords = lapply(filenames, xml_to_coordinates)
+```
+
+coordinates_to_xbins the filesnames functions:
+```{r}
+#the 0 observation issue is caused by files that don't use 1 and 2 as their marker numbers which is a requirement for xml_to_coordinates
+bin_data = lapply(coords, function(x) {coordinates_to_xbins(x,30)} )
+```
+
+removing any ears with too few GFP or WT observations
+```{r}
+sequence = rev(seq(1:length(bin_data)))
+
+for (i in sequence) {
+  sumWT = sum(bin_data[[i]]$WT)
+  sumGFP = sum(bin_data[[i]]$GFP)
+    if ((sumWT < 5) | (sumGFP < 5)) {
+      bin_data = bin_data[-i]
+    }
+}
+
+```
+
+xbins to data
+```{r}
+#will break if one of the ears is "weird". 
+glm_data = lapply(bin_data, function(x) {glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = x)})
+
+```
+
+data to dispersion
+```{r}
+dispersion_data = lapply(glm_data, function(x) {summary(x)$dispersion})
+
+dispersion_data <- data.frame(matrix(unlist(dispersion_data), nrow=length(glm_data), byrow=T),stringsAsFactors=FALSE)
+names(dispersion_data)[names(dispersion_data) == colnames(dispersion_data[1])] = "dispersion_parameter"
+
+```
+
+plot the data on a histogram
+```{r}
+ggplot(data = dispersion_data, aes(dispersion_parameter)) +
+      geom_histogram(binwidth = .1) +
+      xlab("Dispersion Parameter") +
+      ylab("Count") +
+      ggtitle("Dispersion Parameter of all curated X year ears") 
+
+```
+
+
+
+  

@@ -1,0 +1,193 @@
+---
+title: "TestingMendel"
+author: "Nathanael Bowles"
+date: "March 9, 2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library("onewaytests")
+library("ggplot2")
+```
+
+** We want to be able to compare each ear to a 50/50 coin flip 
+
+load the files and fixes them so only working xml are included
+```{r}
+filenames = list.files("../Data_for_Analysis/curated_female_xml", pattern="*.xml", full.names=TRUE)
+
+coords = lapply(filenames, xml_to_coordinates)
+
+sequence = rev(seq(length(coords)))
+
+for (i in sequence) {
+  if (nrow(coords[[i]]) == 0)  {
+    filenames = filenames[-i]
+  }
+}
+
+coords = lapply(filenames, xml_to_coordinates)
+```
+
+
+Binomial test
+```{r}
+
+sequence = seq(1, length(coords))
+results = seq(1, length(coords))
+
+for (i in sequence) {
+  test = xml_to_coordinates(filenames[i])
+  total = nrow(test)
+  test_bin = coordinates_to_xbins(test,30)
+  succ = sum(test_bin$GFP)
+  
+  btest = binom.test(succ, total, p = .5, alternative = "two.sided")
+  
+  results[i] = btest$p.value
+}
+
+
+```
+
+multiple test adjustment. Not needed for the next test since the goal of this test is to find "more normal" female ears. 
+```{r}
+
+##results = p.adjust(results, method = "bonferroni")
+
+```
+
+
+finishes setting up and plots a histogram of p-values.
+```{r}
+
+dfresults = data.frame(results)
+
+dfresults <- data.frame(matrix(unlist(results), nrow=length(filenames), byrow=T),stringsAsFactors=FALSE)
+names(dfresults)[names(dfresults) == colnames(dfresults[1])] = "p.value"
+
+ggplot(data = dfresults, aes(p.value)) +
+      geom_histogram(binwidth = .05) +
+      xlab("p-value") +
+      ylab("Per Ear Count") +
+      ggtitle("Female P-value After Binomial Test and Adjustment") 
+
+```
+
+
+Removes from 'filenames' all female mutant parent ears with less than a .5 p-value.
+```{r}
+sequence = rev(seq(1, length(results)))
+
+for (i in sequence) {
+  if (results[i] < .5) {
+    filenames = filenames[-i]
+  }
+}
+
+```
+
+
+Small notes:
+
+- Only a 3-ish p-values are within a .05 threshold. However, these are ones REALLY close to 0 as they are ears with 3/270 GFP kernels. Now let's begin setting up a set of xml with .5 > P-value to use as a "baseline" for the assessing the distribution of the males. 
+- For this I will use the Brown-Forsythe test because it is resistant to non-normal distributions (since we are assuming a quasi-binomial distributionw)
+
+ 
+First we setup the female parents mutant allele ears based on what we found from the binomial test.
+```{r}
+
+#filenames = list.files("../Data_for_Analysis/curated_female_xml", pattern="*.xml", full.names=TRUE)
+
+female_coords = lapply(filenames, xml_to_coordinates)
+
+sequence = rev(seq(1, length(female_coords)))
+
+
+for (i in sequence) {
+  if (nrow(female_coords[[i]]) == 0)  {
+    filenames = filenames[-i]
+  }
+}
+
+female_coords = lapply(filenames, xml_to_coordinates)
+
+female_bin_data = lapply(female_coords, function(x) {coordinates_to_xbins(x,30)})
+
+```
+
+```{r}
+sequence = seq(length(male_bin_data)+1, length(female_bin_data) + length(male_bin_data)+1)
+
+k=0
+
+for (i in sequence) {
+  k = k + 1
+  GFP_l[i] = sum(male_bin_data[[k]]$GFP)
+  WT_l[i] = sum(male_bin_data[[k]]$WT)
+  mutant.allele.parent[i] = "Female"
+}
+
+sequence = seq(1, length(female_bin_data) + length(male_bin_data)+1)
+
+for (i in sequence) {
+  transmission_rate[i] = GFP_l[i]/(WT_l[i] + GFP_l[i])
+}
+
+
+```
+
+Then we setup the male mutant allele ears.
+```{r}
+
+filenames = list.files("../Data_for_Analysis/curated_male_xml", pattern="*.xml", full.names=TRUE)
+
+male_coords = lapply(filenames, xml_to_coordinates)
+
+sequence = rev(seq(1, length(male_coords)))
+
+for (i in sequence) {
+  if (nrow(male_coords[[i]]) == 0)  {
+    filenames = filenames[-i]
+  }
+}
+
+male_coords = lapply(filenames, xml_to_coordinates)
+
+male_bin_data = lapply(male_coords, function(x) {coordinates_to_xbins(x,30)})
+
+```
+
+
+```{r}
+sequence = seq(1,length(male_bin_data))
+GFP_l = sequence
+WT_l = sequence
+mutant.allele.parent = sequence
+
+for (i in sequence) {
+  GFP_l[i] = sum(male_bin_data[[i]]$GFP)
+  WT_l[i] = sum(male_bin_data[[i]]$WT)
+  mutant.allele.parent[i] = "Male"
+}
+
+```
+
+
+combine into one data frame
+```{r}
+
+BF_DF = data.frame(transmission_rate, GFP_l, WT_l, mutant.allele.parent)
+
+```
+
+```{r}
+
+results = bf.test(transmission_rate  ~ mutant.allele.parent, data = BF_DF, alpha = .05)
+
+```
+
+
+
