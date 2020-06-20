@@ -2,6 +2,7 @@
 xml_to_coordinates <- function(input_data_path) {
   library(xml2)
   
+  
   #### Importing the data and arranging it into a useful dataframe ####
   input_xml_data <- read_xml(input_data_path)
   

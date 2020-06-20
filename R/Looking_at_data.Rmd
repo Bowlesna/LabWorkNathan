@@ -14,7 +14,8 @@ First I will take a look at how the data looks before we do anything. Here we si
 ```{r}
 library(ggplot2);
 
-testdf <- xml_to_coordinates("~/LabWorkNathan/Data_for_Analysis/all_xml_files/X400x426L-2m2.xml")
+#testdf <- xml_to_coordinates("~/LabWorkNathan/Data_for_Analysis/all_xml_files/X400x426L-2m2.xml")
+testdf <- xml_to_coordinates(list[22])
 
   ggplot(data = testdf, aes(x=type)) +
       geom_bar()  +
@@ -26,7 +27,7 @@ Next we want to view it in bins. We want at least 15 degrees of freedom. As such
 
 ```{r}
    #calculate amount of length per bin
-   num_bins = 20
+   num_bins = 30
 
    xmax = max(testdf$x)
    xmin = min(testdf$x)
@@ -37,8 +38,6 @@ Next we want to view it in bins. We want at least 15 degrees of freedom. As such
    
    #removes data frame names that would cause issues with the code
    rm(final_df)
-   rm(GFP_df)
-   rm(WT_df)
 ```
 
 ```{r}
@@ -98,13 +97,33 @@ Next we want to view it in bins. We want at least 15 degrees of freedom. As such
 
 ```{r}
 
- #ggplot of the GFP with respect to y
+ #ggplot of the GFP with respect to x
  ggplot(data = final_df, aes(x = bins, y = GFP)) +
       geom_col()  +
       ggtitle("X400x426L-2m2") +
       ylim(0,15) +
       theme(plot.title = element_text(hjust = 0.5))
 ```
+
+Need to alter data into proportions rather than just # of kernels per bin for the logit link function.
+
+
+This first attempt changes the values in final_df to (# of WT)/(# of kernels). This is an alternative to using the cbind() function to have it calculate successes vs failures. 
+
+This method is definitely not correct. 
+
+```{r}
+
+sequence2 = seq(1, num_bins)
+Total = final_df$WT + final_df$GFP
+
+for (i in sequence2) {
+  final_df$WT[i] = ((WT[i])/(Total[i]))
+  final_df$GFP[i]= ((GFP[i])/(Total[i]))
+}
+
+```
+
 
 
 Time to shove it into a GLM before the meeting
@@ -114,9 +133,33 @@ Time to shove it into a GLM before the meeting
 - linear predictor
 
 ```{r}
-glm(WT ~ bins,family = quasibinomial(link = "logit"), data = bin_df)
+transmission_rates = seq(1,30)
+sequence = seq(1, nrow(final_df))
 
+for (i in sequence) {
+  transmission_rates[i] = final_df$GFP[i]/(final_df$WT[i] + final_df$GFP[i])
+}
 
 ```
+
+```{r}
+
+GLM_combined_male = glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = single_bin)
+
+models1 = summary(GLM_combined_male)
+
+models1
+
+```
+
+```{r}
+
+model2 = glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = final_df)
+
+models2 = summary(model)
+
+models2
+```
+
 
 

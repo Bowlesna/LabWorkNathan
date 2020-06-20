@@ -15,17 +15,265 @@ library(ggplot2)
 ```
 
 
-Program to go through all the different .xml files and process them to get the dispersion value based on a certain number of bins
+First test, a test to setup the GLM model using every ear. Some ears that are initially loaded disapear because they are faulty .xml files.
+
+```{r}
+#load file names based on your folder
+filenames = list.files("../Data_for_Analysis/working_xml_files", pattern="*.xml", full.names=TRUE)
+
+coords = lapply(filenames, xml_to_coordinates)
+
+#removes faulty xml from the files. 
+
+sequence = rev(seq(1:length(coords)))
+
+#checks if there will be an error when coordinates_to_xbins runs. If there is, it removes it from filenames 
+for (i in sequence) {
+  if (nrow(coords[[i]]) == 0)  {
+    filenames = filenames[-i]
+  }
+}
+
+coords = lapply(filenames, xml_to_coordinates)
+```
 
 
-First use the xml_to_coordinates.R function to process the xml files. 
-You may need to swap function locations if not using it within this GitHub
+```{r}
+#the 0 observation issue is caused by files that don't use 1 and 2 as their marker numbers which is a requirement for xml_to_coordinates
+bin_data = lapply(coords, function(x) {coordinates_to_xbins(x,30)} )
+
+sequence = rev(seq(1:length(bin_data)))
+
+#removes the files that break the glm, namely the ears with only one kind of kernel allele. At most removes the cases with very few WT or GFP which are by definition odd ears. 
+
+for (i in sequence) {
+  sumWT = sum(bin_data[[i]]$WT)
+  sumGFP = sum(bin_data[[i]]$GFP)
+    if ((sumWT < 3) | (sumGFP < 5)) {
+      bin_data = bin_data[-i]
+      filenames = filenames[-i]
+    }
+}
+
+#turn the data into a glm
+glm_data = lapply(bin_data, function(x) {glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = x)})
+
+
+#extract the p values
+pv_data = lapply(glm_data, function(x) {(summary(x)$coefficients)})
+
+p_data = lapply(pv_data, function(x) {x[8]})
+
+#p_data = p.adjust(p_data,method = "fdr")
+
+p_df <- data.frame(matrix(unlist(p_data), nrow=length(p_data), byrow=T))
+names(p_df)[names(p_df) == colnames(p_df[1])] = "p_value"
+
+```
+
+
+plot the data on a histogram
+```{r}
+ggplot(data = p_df, aes(p_value)) +
+      geom_histogram(binwidth = .05) +
+      xlab("P-Values") +
+      ylab("Count") +
+      ggtitle("P-Values of all ear families without adjustment (per ear)")
+
+```
+
+________________________________________________________________________
+Next we want to look at the data without endpoints.
+
+This uses the same data set as above.
+
+
+sever off endpoints
+```{r}
+#the 0 observation issue is caused by files that don't use 1 and 2 as their marker numbers which is a requirement for xml_to_coordinates
+bin_data = lapply(coords, function(x) {coordinates_to_xbins(x,30)} )
+
+sequence = seq(1,length(bin_data))
+sequence2 = seq(3,28)
+sequence3 = seq(1,26)
+  bin_ed = list()
+
+
+for (i in sequence) {
+    bin_ed[[i]] = data.frame("bins" = bin_data[[i]]$bins[3:28], "WT" = bin_data[[i]]$WT[3:28] , "GFP" = bin_data[[i]]$GFP[3:28])
+}
+  
+  
+```
+  
+```{r}
+#removes the files that break the glm, namely the ears with only one kind of kernel allele. At most removes the cases with very few WT or GFP which are by definition odd ears. 
+
+for (i in sequence) {
+  sumWT = sum(bin_data[[i]]$WT)
+  sumGFP = sum(bin_data[[i]]$GFP)
+    if ((sumWT < 3) | (sumGFP < 5)) {
+      bin_data = bin_data[-i]
+      filenames = filenames[-i]
+    }
+}
+
+#turn the data into a glm
+glm_data = lapply(bin_ed, function(x) {glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = x)})
+
+
+#extract the p values
+pv_data = lapply(glm_data, function(x) {(summary(x)$coefficients)})
+
+p_data = lapply(pv_data, function(x) {x[8]})
+
+#p_data = p.adjust(p_data,method = "fdr")
+
+p_df <- data.frame(matrix(unlist(p_data), nrow=length(p_data), byrow=T))
+names(p_df)[names(p_df) == colnames(p_df[1])] = "p_value"
+
+```
+
+
+plot the data on a histogram
+```{r}
+ggplot(data = p_df, aes(p_value)) +
+      geom_histogram(binwidth = .05) +
+      xlab("P-Values") +
+      ylab("Count") +
+      ggtitle("P-Values of all ear families without adjustment, without endpoints (per ear)")
+
+```
+
+
+_____________________________
+Same data set as the above two, but now we will make the GLM using bins^2 as well
+
+quadratic variable test setup:
+```{r}
+bins_squared = bin_data
+
+sequence = seq(1, length(bin_data))
+sequence2  = seq(1, 30)
+
+for (i in sequence) {
+  for (j in sequence2) {
+  bins_squared[[i]]$bins[j] = (bin_data[[i]]$bins[j])^2
+  }
+  bin_data[[i]] = data.frame(bin_data[[i]],bins_squared[[i]]$bins)
+}
+```
+
+```{r}
+
+#turn the data into a glm
+glm_data = lapply(bin_data, function(x) {glm(cbind(GFP,WT) ~ bins+bins_squared,family = quasibinomial(link = "logit"), data = x)})
+
+
+#extract the p value for the bins^2 variable.
+pv_data = lapply(glm_data, function(x) {(summary(x)$coefficients)})
+
+p_data = lapply(pv_data, function(x) {x[12]})
+
+#p_data = p.adjust(p_data,method = "fdr")
+
+p_df <- data.frame(matrix(unlist(p_data), nrow=length(p_data), byrow=T))
+names(p_df)[names(p_df) == colnames(p_df[1])] = "p_value"
+
+```
+
+plot the data on a histogram
+```{r}
+ggplot(data = p_df, aes(p_value)) +
+      geom_histogram(binwidth = .05) +
+      xlab("P-Values of bins^2") +
+      ylab("Count") +
+      ggtitle("P-Values of all ear families without adjustment (per ear)")
+
+```
+
+______________________
+Next test, checking just the "interesting ears" that Professor Fowler suggested
+
+```{r}
+#load file names based on your folder
+filenames = list.files("../Data_for_Analysis/strange_data", pattern="*.xml", full.names=TRUE)
+
+coords = lapply(filenames, xml_to_coordinates)
+
+#removes faulty xml from the files. After running this you have to run the xml_to_coordinates file loop.
+
+sequence = rev(seq(1:length(coords)))
+
+#checks if there will be an error when coordinates_to_xbins runs. If there is, it removes it from filenames 
+for (i in sequence) {
+  if (nrow(coords[[i]]) == 0)  {
+    filenames = filenames[-i]
+  }
+}
+
+coords = lapply(filenames, xml_to_coordinates)
+
+```
+
+```{r}
+#the 0 observation issue is caused by files that don't use 1 and 2 as their marker numbers which is a requirement for xml_to_coordinates
+bin_data = lapply(coords, function(x) {coordinates_to_xbins(x,30)} )
+
+sequence = rev(seq(1:length(bin_data)))
+
+#removes the files that break the glm, namely the ears with only one kind of kernel allele. At most removes the cases with very few WT or GFP which are by definition odd ears. 
+
+for (i in sequence) {
+  sumWT = sum(bin_data[[i]]$WT)
+  sumGFP = sum(bin_data[[i]]$GFP)
+    if ((sumWT < 3) | (sumGFP < 5)) {
+      bin_data = bin_data[-i]
+      filenames = filenames[-i]
+    }
+}
+
+#turn the data into a glm
+glm_data = lapply(bin_data, function(x) {glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = x)})
+
+
+#extract the p values
+pv_data = lapply(glm_data, function(x) {(summary(x)$coefficients)})
+
+p_data = lapply(pv_data, function(x) {x[8]})
+
+p_data = p.adjust(p_data,method = "fdr")
+
+p_df <- data.frame(matrix(unlist(p_data), nrow=length(p_data), byrow=T))
+names(p_df)[names(p_df) == colnames(p_df[1])] = "p_value"
+
+```
+
+
+plot the data on a histogram
+```{r}
+ggplot(data = p_df, aes(p_value)) +
+      geom_histogram(binwidth = .05) +
+      xlab("P-Values") +
+      ylab("Count") +
+      ggtitle("P-Values of the selected strange ears (per ear)")
+
+```
+
+
+
+
+______________________________________________
+These are all the misc. bits of code I used to construct the above tests, they are in a strange order for now.
+_______________________________________________
+
 
 
 load needed functions and other starter stuff:
 ```{r}
 #load file names based on your folder
-filenames = list.files("../Data_for_Analysis/working_xml_files", pattern="*.xml", full.names=TRUE)
+filenames = list.files("../Data_for_Analysis/strange_data", pattern="*.xml", full.names=TRUE)
+
 ```
 
 xml_to_coordinates the filenames function:
@@ -52,6 +300,52 @@ coordinates_to_xbins the filesnames functions:
 bin_data = lapply(coords, function(x) {coordinates_to_xbins(x,30)} )
 ```
 
+
+
+sever off endpoints
+
+```{r}
+sequence = seq(1,length(bin_data))
+sequence2 = seq(3,28)
+sequence3 = seq(1,26)
+  bin_ed = list()
+#  bin_edn = bin_data
+
+#for (i in sequence) {
+#  bin_edn[[i]] = bin_ed_temp
+#}
+
+for (i in sequence) {
+    bin_ed[[i]] = data.frame("bins" = bin_data[[i]]$bins[3:28], "WT" = bin_data[[i]]$WT[3:28] , "GFP" = bin_data[[i]]$GFP[3:28])
+}
+
+```
+
+combine into one family
+```{r}
+sequence = seq(1, length(bin_data))
+sequence2 = seq(1,30)
+sequence3 = seq(1,30)^2
+WT = seq(1,30)*0
+GFP = seq(1,30)*0
+
+
+for (i in sequence) {
+  for (j in sequence2) {
+    WT[j] = WT[j] + bin_data[[i]]$WT[j]
+    GFP[j] = GFP[j] + bin_data[[i]]$GFP[j]
+  }
+}
+
+
+single_bin = data.frame(bins = seq(1,30), bins_squared = sequence3, WT = WT, GFP = GFP )
+
+
+
+```
+
+
+
 removing any ears with too few GFP or WT observations
 ```{r}
 sequence = rev(seq(1:length(bin_data)))
@@ -59,38 +353,113 @@ sequence = rev(seq(1:length(bin_data)))
 for (i in sequence) {
   sumWT = sum(bin_data[[i]]$WT)
   sumGFP = sum(bin_data[[i]]$GFP)
-    if ((sumWT < 5) | (sumGFP < 5)) {
+    if ((sumWT < 3) | (sumGFP < 5)) {
       bin_data = bin_data[-i]
+      filenames = filenames[-i]
     }
 }
 
 ```
 
+quadratic variable test:
+```{r}
+bins_squared = bin_data
+
+sequence = seq(1, length(bin_data))
+sequence2  = seq(1, 30)
+
+for (i in sequence) {
+  for (j in sequence2) {
+  bins_squared[[i]]$bins[j] = (bin_data[[i]]$bins[j])^2
+  }
+  bin_data[[i]] = data.frame(bin_data[[i]],bins_squared[[i]]$bins)
+}
+
+
+
+```
+
+
 xbins to data
 ```{r}
 #will break if one of the ears is "weird". 
+
 glm_data = lapply(bin_data, function(x) {glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = x)})
 
 ```
 
 data to dispersion
 ```{r}
-dispersion_data = lapply(glm_data, function(x) {summary(x)$dispersion})
 
-dispersion_data <- data.frame(matrix(unlist(dispersion_data), nrow=length(glm_data), byrow=T),stringsAsFactors=FALSE)
-names(dispersion_data)[names(dispersion_data) == colnames(dispersion_data[1])] = "dispersion_parameter"
+pv_data = lapply(glm_data, function(x) {(summary(x)$coefficients)})
 
+p_data = lapply(pv_data, function(x) {x[8]})
+#p_data = lapply(pv_data,function(x) {x[12]})
+
+p_data = p.adjust(p_data,method = "fdr")
+
+p_df <- data.frame(matrix(unlist(p_data), nrow=length(p_data), byrow=T))
+names(p_df)[names(p_df) == colnames(p_df[1])] = "p_value"
+
+
+#dispersion_data = lapply(glm_data, function(x) {summary(x)$dispersion_parameter})
+
+#dispersion_data <- data.frame(matrix(unlist(dispersion_data), nrow=length(glm_data), byrow=T),stringsAsFactors=FALSE)
+#names(dispersion_data)[names(dispersion_data) == colnames(dispersion_data[1])] = "dispersion_parameter"
+
+```
+
+```{r}
+
+lapply()
 ```
 
 plot the data on a histogram
 ```{r}
-ggplot(data = dispersion_data, aes(dispersion_parameter)) +
-      geom_histogram(binwidth = .1) +
-      xlab("Dispersion Parameter") +
+ggplot(data = p_df, aes(p_value)) +
+      geom_histogram(binwidth = .05) +
+      xlab("P-Values") +
       ylab("Count") +
-      ggtitle("Dispersion Parameter of all curated X year ears") 
+      ggtitle("P-Values of all ear families with adjustment (per ear)")
 
 ```
+
+```{r}
+
+sequence = seq(1, length(p_data))
+counter = 0
+list = seq(1,2)
+j = 0
+
+for( i in sequence) {
+  if (p_data[i] < .05) {
+    j = j +1
+    list[j] = filenames[i]
+  }
+}
+
+```
+
+Anova test:
+
+```{r}
+GLM = glm(cbind(GFP,WT) ~ bins, family = quasibinomial(link = "logit"), data = single_bin)
+GLMq =  glm(cbind(GFP,WT) ~ bins + bins_squared, family = quasibinomial(link = "logit"), data = single_bin)
+
+anova(GLM, GLMq, test="F")
+```
+
+
+
+
+```{r}
+glm_data = lapply(bin_ed, function(x) {glm(cbind(GFP,WT) ~ bins,family = quasibinomial(link = "logit"), data = x)})
+
+```
+
+
+
+
 
 
 

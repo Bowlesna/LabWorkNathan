@@ -4,21 +4,19 @@
 
 coordinates_to_xbins <- function(input_df, num_bins) {
 
-  
   #calculate amount of length per bin
   xmax = max(input_df$x)
   xmin = min(input_df$x)
   bins = (xmax-xmin)/num_bins
   
-  
   #split data into bins by brute force
   
   #make new data frame for column by column
-  final_df = data.frame(bins= seq(xmin,xmax,bins), WT = c(1:(num_bins+1))*0, GFP = c(1:(num_bins+1))*0)
+  final_df = data.frame(bins = seq(xmin,xmax,bins), WT = c(1:(num_bins+1))*0, GFP = c(1:(num_bins+1))*0)
   
   #sequences for the for-loops that come next
-  sequence = seq(1,nrow(input_df)) 
-  sequence2 = seq(1,nrow(final_df)-1)
+  sequence = seq(1, nrow(input_df)) 
+  sequence2 = seq(1, num_bins)
   
   #The brute force part, requires that the final_df is empty or it will double count
   
